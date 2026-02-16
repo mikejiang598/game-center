@@ -2,6 +2,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>小精靈 Pac-Man</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -116,6 +117,41 @@
     letter-spacing: 1px;
   }
   .btn:hover { background: #c73652; }
+  .touch-controls {
+    display: none;
+    margin-top: 12px;
+  }
+  .dpad {
+    display: grid;
+    grid-template-columns: 56px 56px 56px;
+    grid-template-rows: 56px 56px 56px;
+    gap: 4px;
+    justify-content: center;
+  }
+  .touch-btn {
+    width: 56px; height: 56px;
+    background: #16213e;
+    border: 2px solid #0f3460;
+    border-radius: 12px;
+    color: #53d8fb;
+    font-size: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  .touch-btn:active { background: #0f3460; border-color: #e94560; }
+  .dpad-empty { visibility: hidden; }
+  @media (max-width: 700px) {
+    body { height: auto; min-height: 100vh; padding: 10px 0; }
+    .game-container { flex-direction: column; align-items: center; }
+    .side-panel { width: 100%; max-width: 340px; flex-direction: row; flex-wrap: wrap; gap: 8px; order: 2; }
+    .side-panel .panel-box { flex: 1; min-width: 140px; }
+    canvas#game-canvas { max-width: calc(100vw - 20px); height: auto; }
+    .touch-controls { display: block; }
+  }
 </style>
 </head>
 <body>
@@ -171,6 +207,19 @@
       <h2>過關！</h2>
       <p>分數: <span id="win-score">0</span></p>
       <button class="btn" id="next-btn">下一關</button>
+    </div>
+  </div>
+  <div class="touch-controls">
+    <div class="dpad">
+      <div class="dpad-empty"></div>
+      <button class="touch-btn" id="t-up">↑</button>
+      <div class="dpad-empty"></div>
+      <button class="touch-btn" id="t-left">←</button>
+      <div class="dpad-empty"></div>
+      <button class="touch-btn" id="t-right">→</button>
+      <div class="dpad-empty"></div>
+      <button class="touch-btn" id="t-down">↓</button>
+      <div class="dpad-empty"></div>
     </div>
   </div>
 </div>
@@ -776,6 +825,14 @@ document.addEventListener('keydown', e => {
 document.getElementById('start-btn').addEventListener('click', startGame);
 document.getElementById('restart-btn').addEventListener('click', startGame);
 document.getElementById('next-btn').addEventListener('click', nextLevel);
+
+// Touch controls
+const touchDirs = { 't-up': 3, 't-down': 1, 't-left': 2, 't-right': 0 };
+Object.entries(touchDirs).forEach(([id, dir]) => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('touchstart', e => { e.preventDefault(); if (gameState === 'playing') pacman.nextDir = dir; }, { passive: false });
+});
 
 // Init
 showOverlay('start');

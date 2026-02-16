@@ -2,6 +2,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>小鳥飛水管 Flappy Bird</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -93,6 +94,15 @@
     letter-spacing: 1px;
   }
   .btn:hover { background: #c73652; }
+  .touch-hint { display: none; text-align: center; margin-top: 12px; color: #aaa; font-size: 13px; }
+  @media (max-width: 700px) {
+    body { height: auto; min-height: 100vh; padding: 10px 0; }
+    .game-container { flex-direction: column; align-items: center; }
+    .side-panel { width: 100%; max-width: 340px; flex-direction: row; flex-wrap: wrap; gap: 8px; order: 2; }
+    .side-panel .panel-box { flex: 1; min-width: 140px; }
+    canvas#game-canvas { max-width: calc(100vw - 20px); height: auto; }
+    .touch-hint { display: block; }
+  }
   .medal-display {
     text-align: center;
     margin-top: 4px;
@@ -151,6 +161,7 @@
       <button class="btn" id="restart-btn">再玩一次</button>
     </div>
   </div>
+  <div class="touch-hint">點擊畫面讓小鳥拍翅</div>
 </div>
 
 <script>
@@ -528,6 +539,12 @@ document.addEventListener('keydown', e => {
 canvas.addEventListener('click', () => {
   if (gameState === 'playing') flap();
 });
+
+// Touch support
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (gameState === 'playing') flap();
+}, { passive: false });
 
 // Buttons
 document.getElementById('start-btn').addEventListener('click', startGame);

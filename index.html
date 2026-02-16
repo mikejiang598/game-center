@@ -2,6 +2,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>遊戲中心</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -372,6 +373,25 @@
   @keyframes flappy-bob {
     0%, 100% { transform: translateY(-4px); }
     50%      { transform: translateY(4px); }
+  }
+
+  /* Mobile Responsive */
+  @media (max-width: 700px) {
+    h1 { font-size: 28px; }
+    .subtitle { font-size: 13px; margin-bottom: 32px; }
+    .games { gap: 20px; }
+    .game-card {
+      width: 160px;
+      padding: 24px 20px 20px;
+    }
+    .icon-wrapper {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 16px;
+    }
+    .game-name { font-size: 16px; }
+    .game-desc { font-size: 11px; }
+    footer { margin-top: 32px; }
   }
 </style>
 </head>
