@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>遊戲中心</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a1a2e;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Segoe UI', sans-serif;
+    color: #e0e0e0;
+    user-select: none;
+  }
+  .container {
+    text-align: center;
+  }
+  h1 {
+    color: #e94560;
+    font-size: 42px;
+    letter-spacing: 4px;
+    margin-bottom: 12px;
+  }
+  .subtitle {
+    color: #53d8fb;
+    font-size: 16px;
+    letter-spacing: 2px;
+    margin-bottom: 60px;
+  }
+  .games {
+    display: flex;
+    gap: 48px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .game-card {
+    background: #16213e;
+    border: 2px solid #0f3460;
+    border-radius: 16px;
+    padding: 36px 32px 28px;
+    width: 220px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+  .game-card:hover {
+    border-color: #e94560;
+    box-shadow: 0 0 30px rgba(233, 69, 96, 0.3);
+    transform: translateY(-8px);
+  }
+  .game-card:hover .game-name {
+    color: #e94560;
+  }
+  .icon-wrapper {
+    width: 120px;
+    height: 120px;
+    margin: 0 auto 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .game-name {
+    font-size: 20px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+    transition: color 0.3s;
+    color: #e0e0e0;
+  }
+  .game-desc {
+    font-size: 13px;
+    color: #aaa;
+    line-height: 1.6;
+  }
+  footer {
+    margin-top: 60px;
+    color: #555;
+    font-size: 12px;
+    letter-spacing: 1px;
+  }
+
+  /* Tetris Icon */
+  .tetris-icon {
+    display: grid;
+    grid-template-columns: repeat(4, 24px);
+    grid-template-rows: repeat(4, 24px);
+    gap: 3px;
+  }
+  .tetris-icon .b {
+    border-radius: 3px;
+    border: 1px solid rgba(0,0,0,0.2);
+  }
+  .tetris-icon .b.cyan    { background: #00f0f0; box-shadow: 0 0 6px rgba(0,240,240,0.4); }
+  .tetris-icon .b.yellow  { background: #f0f000; box-shadow: 0 0 6px rgba(240,240,0,0.4); }
+  .tetris-icon .b.purple  { background: #a000f0; box-shadow: 0 0 6px rgba(160,0,240,0.4); }
+  .tetris-icon .b.red     { background: #f00000; box-shadow: 0 0 6px rgba(240,0,0,0.4); }
+  .tetris-icon .b.orange  { background: #f0a000; box-shadow: 0 0 6px rgba(240,160,0,0.4); }
+  .tetris-icon .b.empty   { background: transparent; border-color: transparent; }
+
+  /* Pacman Icon */
+  .pacman-icon {
+    position: relative;
+    width: 100px;
+    height: 100px;
+  }
+  .pacman-body {
+    width: 72px;
+    height: 72px;
+    background: #f0e000;
+    border-radius: 50%;
+    position: absolute;
+    left: 0;
+    top: 14px;
+    clip-path: polygon(100% 50%, 50% 50%, 75% 15%, 100% 0%, 100% 100%, 75% 85%);
+    animation: chomp 0.6s infinite;
+    box-shadow: 0 0 16px rgba(240,224,0,0.4);
+  }
+  @keyframes chomp {
+    0%, 100% { clip-path: polygon(100% 50%, 50% 50%, 70% 20%, 100% 0%, 100% 100%, 70% 80%); }
+    50%      { clip-path: polygon(100% 50%, 50% 50%, 58% 38%, 100% 15%, 100% 85%, 58% 62%); }
+  }
+  .pacman-eye {
+    width: 8px;
+    height: 8px;
+    background: #1a1a2e;
+    border-radius: 50%;
+    position: absolute;
+    left: 38px;
+    top: 26px;
+  }
+  .pac-dot {
+    width: 8px;
+    height: 8px;
+    background: #f0e000;
+    border-radius: 50%;
+    position: absolute;
+    top: 46px;
+    box-shadow: 0 0 6px rgba(240,224,0,0.5);
+  }
+  .pac-dot:nth-child(3) { left: 78px; }
+  .pac-dot:nth-child(4) { left: 92px; }
+
+  /* Crush Roller Icon */
+  .crush-icon {
+    position: relative;
+    width: 100px;
+    height: 100px;
+  }
+  .crush-roller {
+    width: 40px;
+    height: 40px;
+    background: #53d8fb;
+    border-radius: 8px;
+    position: absolute;
+    left: 30px;
+    top: 16px;
+    box-shadow: 0 0 12px rgba(83,216,251,0.5);
+    animation: crush-move 2s ease-in-out infinite;
+  }
+  @keyframes crush-move {
+    0%, 100% { transform: translate(0, 0); }
+    25%      { transform: translate(14px, 0); }
+    50%      { transform: translate(14px, 14px); }
+    75%      { transform: translate(0, 14px); }
+  }
+  .crush-paint {
+    position: absolute;
+    border-radius: 3px;
+  }
+  .crush-paint.p1 {
+    width: 20px; height: 20px;
+    background: #e94560;
+    left: 12px; top: 60px;
+    box-shadow: 0 0 8px rgba(233,69,96,0.4);
+  }
+  .crush-paint.p2 {
+    width: 16px; height: 16px;
+    background: #00f000;
+    left: 56px; top: 66px;
+    box-shadow: 0 0 8px rgba(0,240,0,0.4);
+  }
+  .crush-paint.p3 {
+    width: 18px; height: 18px;
+    background: #f0a000;
+    left: 74px; top: 38px;
+    box-shadow: 0 0 8px rgba(240,160,0,0.4);
+  }
+  .crush-lines {
+    position: absolute;
+    left: 10px; top: 10px;
+    width: 80px; height: 80px;
+    border: 2px solid rgba(83,216,251,0.15);
+    border-radius: 4px;
+  }
+  .crush-lines::before, .crush-lines::after {
+    content: '';
+    position: absolute;
+    background: rgba(83,216,251,0.1);
+  }
+  .crush-lines::before {
+    width: 100%; height: 2px;
+    top: 50%; left: 0;
+  }
+  .crush-lines::after {
+    width: 2px; height: 100%;
+    left: 50%; top: 0;
+  }
+
+  /* Galaxian Icon */
+  .galaxian-icon {
+    position: relative;
+    width: 100px;
+    height: 110px;
+  }
+  .gx-ship {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-bottom: 20px solid #53d8fb;
+    filter: drop-shadow(0 0 6px rgba(83,216,251,0.6));
+  }
+  .gx-bullet {
+    position: absolute;
+    bottom: 22px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 14px;
+    background: #53d8fb;
+    box-shadow: 0 0 6px rgba(83,216,251,0.6);
+    animation: gx-shoot 1s ease-out infinite;
+  }
+  @keyframes gx-shoot {
+    0%   { opacity: 1; transform: translateX(-50%) translateY(0); }
+    100% { opacity: 0; transform: translateX(-50%) translateY(-50px); }
+  }
+  .gx-enemy {
+    position: absolute;
+    width: 0; height: 0;
+    filter: drop-shadow(0 0 5px currentColor);
+  }
+  .gx-enemy::before {
+    content: '';
+    position: absolute;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-top: 12px solid currentColor;
+    left: -8px; top: 0;
+  }
+  .gx-enemy::after {
+    content: '';
+    position: absolute;
+    width: 4px; height: 4px;
+    background: currentColor;
+    border-radius: 50%;
+    left: -2px; top: -4px;
+  }
+  .gx-row1 { top: 6px; }
+  .gx-row2 { top: 28px; }
+  .gx-row3 { top: 50px; }
+  .gx-e1 { left: 18px; color: #e94560; }
+  .gx-e2 { left: 50px; color: #e94560; }
+  .gx-e3 { left: 82px; color: #e94560; }
+  .gx-e4 { left: 10px; color: #a000f0; }
+  .gx-e5 { left: 34px; color: #a000f0; }
+  .gx-e6 { left: 58px; color: #a000f0; }
+  .gx-e7 { left: 82px; color: #a000f0; }
+  .gx-e8 { left: 10px; color: #f0e000; }
+  .gx-e9 { left: 34px; color: #f0e000; }
+  .gx-e10 { left: 58px; color: #f0e000; }
+  .gx-e11 { left: 82px; color: #f0e000; }
+  .gx-enemies {
+    animation: gx-sway 2s ease-in-out infinite;
+  }
+  @keyframes gx-sway {
+    0%, 100% { transform: translateX(-4px); }
+    50%      { transform: translateX(4px); }
+  }
+  .gx-star {
+    position: absolute;
+    background: #fff;
+    border-radius: 50%;
+    opacity: 0.3;
+    animation: gx-twinkle 2s ease-in-out infinite;
+  }
+  .gx-star:nth-child(1) { width: 2px; height: 2px; left: 5px; top: 20px; animation-delay: 0s; }
+  .gx-star:nth-child(2) { width: 1px; height: 1px; left: 95px; top: 40px; animation-delay: 0.5s; }
+  .gx-star:nth-child(3) { width: 2px; height: 2px; left: 45px; top: 75px; animation-delay: 1s; }
+  @keyframes gx-twinkle {
+    0%, 100% { opacity: 0.2; }
+    50%      { opacity: 0.7; }
+  }
+
+  /* Flappy Bird Icon */
+  .flappy-icon {
+    position: relative;
+    width: 100px;
+    height: 110px;
+    overflow: hidden;
+    border-radius: 6px;
+  }
+  .flappy-sky {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 85px;
+    background: linear-gradient(#0a0a1a, #0f1a3a, #162040);
+  }
+  .flappy-ground {
+    position: absolute;
+    bottom: 0; left: 0;
+    width: 100%; height: 25px;
+    background: #0f3460;
+    border-top: 2px solid #e94560;
+  }
+  .flappy-pipe {
+    position: absolute;
+    width: 22px;
+    background: linear-gradient(90deg, #0f3460, #1a4a7a, #0f3460);
+  }
+  .flappy-pipe-top {
+    left: 55px;
+    top: 0;
+    height: 30px;
+    border-bottom: 4px solid #e94560;
+  }
+  .flappy-pipe-bottom {
+    left: 55px;
+    bottom: 25px;
+    height: 30px;
+    border-top: 4px solid #e94560;
+  }
+  .flappy-bird-icon {
+    position: absolute;
+    width: 18px;
+    height: 14px;
+    background: #f0e000;
+    border-radius: 50%;
+    left: 30px;
+    top: 42px;
+    box-shadow: 0 0 8px rgba(240,224,0,0.5);
+    animation: flappy-bob 1s ease-in-out infinite;
+  }
+  .flappy-bird-icon::before {
+    content: '';
+    position: absolute;
+    right: -5px;
+    top: 4px;
+    width: 0; height: 0;
+    border-top: 3px solid transparent;
+    border-bottom: 3px solid transparent;
+    border-left: 6px solid #e94560;
+  }
+  .flappy-bird-icon::after {
+    content: '';
+    position: absolute;
+    right: 2px;
+    top: 2px;
+    width: 5px;
+    height: 5px;
+    background: #fff;
+    border-radius: 50%;
+  }
+  @keyframes flappy-bob {
+    0%, 100% { transform: translateY(-4px); }
+    50%      { transform: translateY(4px); }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>遊戲中心</h1>
+  <p class="subtitle">選擇一個遊戲開始遊玩</p>
+
+  <div class="games">
+
+    <!-- Tetris -->
+    <a class="game-card" href="tetris.html">
+      <div class="icon-wrapper">
+        <div class="tetris-icon">
+          <div class="b empty"></div><div class="b cyan"></div><div class="b empty"></div><div class="b empty"></div>
+          <div class="b empty"></div><div class="b cyan"></div><div class="b yellow"></div><div class="b yellow"></div>
+          <div class="b empty"></div><div class="b cyan"></div><div class="b yellow"></div><div class="b yellow"></div>
+          <div class="b purple"></div><div class="b purple"></div><div class="b purple"></div><div class="b orange"></div>
+        </div>
+      </div>
+      <div class="game-name">俄羅斯方塊</div>
+      <p class="game-desc">經典方塊消除遊戲<br>挑戰你的反應與策略</p>
+    </a>
+
+    <!-- Pac-Man -->
+    <a class="game-card" href="pacman.html">
+      <div class="icon-wrapper">
+        <div class="pacman-icon">
+          <div class="pacman-body"></div>
+          <div class="pacman-eye"></div>
+          <div class="pac-dot"></div>
+          <div class="pac-dot"></div>
+        </div>
+      </div>
+      <div class="game-name">小精靈</div>
+      <p class="game-desc">吃豆迷宮冒險<br>躲避幽靈收集豆子</p>
+    </a>
+
+    <!-- Crush Roller -->
+    <a class="game-card" href="crushroller.html">
+      <div class="icon-wrapper">
+        <div class="crush-icon">
+          <div class="crush-lines"></div>
+          <div class="crush-roller"></div>
+          <div class="crush-paint p1"></div>
+          <div class="crush-paint p2"></div>
+          <div class="crush-paint p3"></div>
+        </div>
+      </div>
+      <div class="game-name">粉碎滾輪</div>
+      <p class="game-desc">街機經典塗色遊戲<br>滾動油漆塗滿地圖</p>
+    </a>
+
+    <!-- Galaxian -->
+    <a class="game-card" href="galaxian.html">
+      <div class="icon-wrapper">
+        <div class="galaxian-icon">
+          <div class="gx-star"></div>
+          <div class="gx-star"></div>
+          <div class="gx-star"></div>
+          <div class="gx-enemies">
+            <div class="gx-enemy gx-row1 gx-e1"></div>
+            <div class="gx-enemy gx-row1 gx-e2"></div>
+            <div class="gx-enemy gx-row1 gx-e3"></div>
+            <div class="gx-enemy gx-row2 gx-e4"></div>
+            <div class="gx-enemy gx-row2 gx-e5"></div>
+            <div class="gx-enemy gx-row2 gx-e6"></div>
+            <div class="gx-enemy gx-row2 gx-e7"></div>
+            <div class="gx-enemy gx-row3 gx-e8"></div>
+            <div class="gx-enemy gx-row3 gx-e9"></div>
+            <div class="gx-enemy gx-row3 gx-e10"></div>
+            <div class="gx-enemy gx-row3 gx-e11"></div>
+          </div>
+          <div class="gx-bullet"></div>
+          <div class="gx-ship"></div>
+        </div>
+      </div>
+      <div class="game-name">小蜜蜂</div>
+      <p class="game-desc">經典太空射擊遊戲<br>消滅外星蜂群侵略者</p>
+    </a>
+
+    <!-- Flappy Bird -->
+    <a class="game-card" href="flappybird.html">
+      <div class="icon-wrapper">
+        <div class="flappy-icon">
+          <div class="flappy-sky"></div>
+          <div class="flappy-pipe flappy-pipe-top"></div>
+          <div class="flappy-pipe flappy-pipe-bottom"></div>
+          <div class="flappy-bird-icon"></div>
+          <div class="flappy-ground"></div>
+        </div>
+      </div>
+      <div class="game-name">小鳥飛水管</div>
+      <p class="game-desc">經典飛行挑戰遊戲<br>穿越水管考驗反應</p>
+    </a>
+
+  </div>
+
+  <footer>GAME CENTER &mdash; 點擊卡片進入遊戲</footer>
+</div>
+
+</body>
+</html>

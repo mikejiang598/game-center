@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>小蜜蜂 Galaxian</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a1a2e;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-family: 'Segoe UI', sans-serif;
+    color: #e0e0e0;
+    user-select: none;
+  }
+  .game-container {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+  }
+  .side-panel {
+    width: 160px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .panel-box {
+    background: #16213e;
+    border: 2px solid #0f3460;
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .panel-box h3 {
+    text-align: center;
+    margin-bottom: 8px;
+    color: #e94560;
+    font-size: 14px;
+    letter-spacing: 2px;
+  }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 14px;
+  }
+  .stat-value {
+    color: #53d8fb;
+    font-weight: bold;
+  }
+  canvas#game-canvas {
+    border: 3px solid #0f3460;
+    border-radius: 4px;
+    box-shadow: 0 0 30px rgba(233, 69, 96, 0.3);
+  }
+  .controls {
+    font-size: 12px;
+    line-height: 1.8;
+    color: #aaa;
+  }
+  .controls kbd {
+    background: #0f3460;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    color: #53d8fb;
+  }
+  .overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0,0,0,0.7);
+    border-radius: 4px;
+    gap: 12px;
+  }
+  .overlay.hidden { display: none; }
+  .overlay h2 { color: #e94560; font-size: 28px; }
+  .overlay p { color: #ccc; font-size: 14px; }
+  .board-wrapper { position: relative; }
+  .btn {
+    background: #e94560;
+    color: #fff;
+    border: none;
+    padding: 10px 28px;
+    font-size: 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    letter-spacing: 1px;
+  }
+  .btn:hover { background: #c73652; }
+  .lives-display {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .life-icon {
+    width: 0; height: 0;
+    border-left: 7px solid transparent;
+    border-right: 7px solid transparent;
+    border-bottom: 14px solid #53d8fb;
+  }
+</style>
+</head>
+<body>
+
+<div class="game-container">
+  <!-- Left Panel -->
+  <div class="side-panel">
+    <div class="panel-box">
+      <h3>狀態</h3>
+      <div class="stat-row"><span>分數</span><span class="stat-value" id="score">0</span></div>
+      <div class="stat-row"><span>最高分</span><span class="stat-value" id="highscore">0</span></div>
+      <div class="stat-row"><span>波數</span><span class="stat-value" id="wave">1</span></div>
+    </div>
+    <div class="panel-box">
+      <h3>生命</h3>
+      <div class="lives-display" id="lives-display"></div>
+    </div>
+    <div class="panel-box controls">
+      <h3>操作</h3>
+      <kbd>←</kbd> <kbd>→</kbd> 移動<br>
+      <kbd>空白鍵</kbd> 發射<br>
+      <kbd>P</kbd> 暫停
+    </div>
+    <div class="panel-box" style="text-align:center;">
+      <a href="index.html" style="color:#53d8fb; text-decoration:none; font-size:13px; letter-spacing:1px;">← 返回遊戲中心</a>
+    </div>
+  </div>
+
+  <!-- Game Board -->
+  <div class="board-wrapper">
+    <canvas id="game-canvas" width="420" height="560"></canvas>
+    <div class="overlay" id="start-overlay">
+      <h2>小蜜蜂</h2>
+      <p>經典太空射擊遊戲</p>
+      <button class="btn" id="start-btn">開始遊戲</button>
+    </div>
+    <div class="overlay hidden" id="pause-overlay">
+      <h2>暫停中</h2>
+      <p>按 <kbd>P</kbd> 繼續</p>
+    </div>
+    <div class="overlay hidden" id="gameover-overlay">
+      <h2>遊戲結束</h2>
+      <p>最終分數: <span id="final-score">0</span></p>
+      <button class="btn" id="restart-btn">再玩一次</button>
+    </div>
+    <div class="overlay hidden" id="wave-overlay">
+      <h2 id="wave-text">第 1 波</h2>
+      <p>準備迎戰！</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const W = 420, H = 560;
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+
+// Game state
+let gameState = 'idle';
+let score = 0, highScore = 0, wave = 1, lives = 3;
+let animFrame, lastTime = 0;
+
+// Player
+const player = { x: W / 2, y: H - 40, w: 28, h: 20, speed: 280 };
+let playerBullets = [];
+const BULLET_SPEED = 450;
+let canShoot = true;
+let shootCooldown = 0;
+const SHOOT_DELAY = 0.3;
+
+// Enemies
+let enemies = [];
+let enemyBullets = [];
+let divingEnemies = [];
+const ENEMY_BULLET_SPEED = 220;
+let enemyDir = 1;
+let enemySpeed = 30;
+let enemyMoveTimer = 0;
+let enemyMoveInterval = 0.6;
+let enemyShootTimer = 0;
+let enemyShootInterval = 1.2;
+let diveTimer = 0;
+let diveInterval = 3.0;
+
+// Stars background
+const stars = Array.from({ length: 80 }, () => ({
+  x: Math.random() * W,
+  y: Math.random() * H,
+  s: Math.random() * 1.5 + 0.5,
+  speed: Math.random() * 40 + 20,
+}));
+
+// Input
+const keys = {};
+document.addEventListener('keydown', e => {
+  keys[e.key] = true;
+  if (e.key === ' ' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') e.preventDefault();
+  if ((e.key === 'p' || e.key === 'P') && (gameState === 'playing' || gameState === 'paused')) {
+    togglePause();
+  }
+});
+document.addEventListener('keyup', e => { keys[e.key] = false; });
+
+// Enemy types with colors & points
+const ENEMY_TYPES = [
+  { color: '#e94560', points: 60, name: 'commander' },  // red - top row
+  { color: '#a000f0', points: 40, name: 'guard' },      // purple
+  { color: '#53d8fb', points: 25, name: 'soldier' },     // cyan
+  { color: '#f0e000', points: 15, name: 'drone' },       // yellow
+];
+
+function createEnemies() {
+  enemies = [];
+  const rows = [
+    { type: 0, count: 6, y: 50 },
+    { type: 1, count: 8, y: 85 },
+    { type: 2, count: 8, y: 120 },
+    { type: 3, count: 8, y: 155 },
+    { type: 3, count: 8, y: 190 },
+  ];
+  rows.forEach(row => {
+    const spacing = 40;
+    const totalW = (row.count - 1) * spacing;
+    const startX = (W - totalW) / 2;
+    for (let i = 0; i < row.count; i++) {
+      enemies.push({
+        x: startX + i * spacing,
+        y: row.y,
+        type: row.type,
+        alive: true,
+        w: 22,
+        h: 18,
+        baseX: startX + i * spacing,
+        baseY: row.y,
+        wingPhase: Math.random() * Math.PI * 2,
+      });
+    }
+  });
+}
+
+function drawStars(dt) {
+  stars.forEach(s => {
+    s.y += s.speed * dt;
+    if (s.y > H) { s.y = 0; s.x = Math.random() * W; }
+    ctx.fillStyle = `rgba(255,255,255,${0.3 + s.s * 0.3})`;
+    ctx.fillRect(s.x, s.y, s.s, s.s);
+  });
+}
+
+function drawPlayer() {
+  const px = player.x, py = player.y;
+  // Ship body
+  ctx.fillStyle = '#53d8fb';
+  ctx.beginPath();
+  ctx.moveTo(px, py - player.h / 2);
+  ctx.lineTo(px - player.w / 2, py + player.h / 2);
+  ctx.lineTo(px - player.w / 4, py + player.h / 3);
+  ctx.lineTo(px + player.w / 4, py + player.h / 3);
+  ctx.lineTo(px + player.w / 2, py + player.h / 2);
+  ctx.closePath();
+  ctx.fill();
+  // Glow
+  ctx.shadowColor = '#53d8fb';
+  ctx.shadowBlur = 10;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  // Cockpit
+  ctx.fillStyle = '#1a1a2e';
+  ctx.beginPath();
+  ctx.arc(px, py, 3, 0, Math.PI * 2);
+  ctx.fill();
+  // Thruster
+  const thrusterH = 4 + Math.random() * 4;
+  ctx.fillStyle = '#e94560';
+  ctx.beginPath();
+  ctx.moveTo(px - 4, py + player.h / 3);
+  ctx.lineTo(px, py + player.h / 3 + thrusterH);
+  ctx.lineTo(px + 4, py + player.h / 3);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawEnemy(e, time) {
+  const t = ENEMY_TYPES[e.type];
+  const wingOff = Math.sin(time * 5 + e.wingPhase) * 2;
+
+  ctx.fillStyle = t.color;
+  ctx.shadowColor = t.color;
+  ctx.shadowBlur = 8;
+
+  // Body - insect-like shape
+  ctx.beginPath();
+  ctx.moveTo(e.x, e.y - e.h / 2);                         // top
+  ctx.lineTo(e.x - e.w / 2 - wingOff, e.y - 2);           // left wing
+  ctx.lineTo(e.x - e.w / 3, e.y + 2);                     // left inner
+  ctx.lineTo(e.x - e.w / 2 + 2, e.y + e.h / 2);           // bottom left
+  ctx.lineTo(e.x + e.w / 2 - 2, e.y + e.h / 2);           // bottom right
+  ctx.lineTo(e.x + e.w / 3, e.y + 2);                      // right inner
+  ctx.lineTo(e.x + e.w / 2 + wingOff, e.y - 2);           // right wing
+  ctx.closePath();
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Eyes
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(e.x - 4, e.y - 2, 2, 0, Math.PI * 2);
+  ctx.arc(e.x + 4, e.y - 2, 2, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawBullet(b, color) {
+  ctx.fillStyle = color;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 6;
+  ctx.fillRect(b.x - 1.5, b.y - 5, 3, 10);
+  ctx.shadowBlur = 0;
+}
+
+function drawExplosion(ex) {
+  const progress = ex.timer / ex.duration;
+  const alpha = 1 - progress;
+  const radius = 8 + progress * 20;
+  const particles = 8;
+  for (let i = 0; i < particles; i++) {
+    const angle = (i / particles) * Math.PI * 2;
+    const dist = radius * progress;
+    const px = ex.x + Math.cos(angle) * dist;
+    const py = ex.y + Math.sin(angle) * dist;
+    const size = (1 - progress) * 4;
+    ctx.fillStyle = `rgba(233, 69, 96, ${alpha})`;
+    ctx.fillRect(px - size / 2, py - size / 2, size, size);
+  }
+  // Center flash
+  ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.6})`;
+  ctx.beginPath();
+  ctx.arc(ex.x, ex.y, (1 - progress) * 8, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+let explosions = [];
+
+function spawnExplosion(x, y) {
+  explosions.push({ x, y, timer: 0, duration: 0.4 });
+}
+
+function updatePlayer(dt) {
+  if (keys['ArrowLeft'])  player.x -= player.speed * dt;
+  if (keys['ArrowRight']) player.x += player.speed * dt;
+  player.x = Math.max(player.w / 2, Math.min(W - player.w / 2, player.x));
+
+  shootCooldown -= dt;
+  if (keys[' '] && shootCooldown <= 0) {
+    playerBullets.push({ x: player.x, y: player.y - player.h / 2 });
+    shootCooldown = SHOOT_DELAY;
+  }
+}
+
+function updateBullets(dt) {
+  playerBullets.forEach(b => b.y -= BULLET_SPEED * dt);
+  playerBullets = playerBullets.filter(b => b.y > -10);
+
+  enemyBullets.forEach(b => { b.x += b.vx * dt; b.y += b.vy * dt; });
+  enemyBullets = enemyBullets.filter(b => b.y < H + 10 && b.x > -10 && b.x < W + 10);
+}
+
+function updateEnemyFormation(dt) {
+  const aliveEnemies = enemies.filter(e => e.alive && !e.diving);
+  if (aliveEnemies.length === 0) return;
+
+  enemyMoveTimer += dt;
+  if (enemyMoveTimer >= enemyMoveInterval) {
+    enemyMoveTimer = 0;
+    let minX = Infinity, maxX = -Infinity;
+    aliveEnemies.forEach(e => {
+      if (e.x < minX) minX = e.x;
+      if (e.x > maxX) maxX = e.x;
+    });
+    if (maxX + 15 >= W - 10 || minX - 15 <= 10) {
+      enemyDir *= -1;
+      enemies.forEach(e => { if (e.alive && !e.diving) e.y += 8; });
+    }
+    enemies.forEach(e => {
+      if (e.alive && !e.diving) {
+        e.x += enemyDir * 12;
+        e.baseX = e.x;
+        e.baseY = e.y;
+      }
+    });
+  }
+}
+
+function updateEnemyShooting(dt) {
+  enemyShootTimer += dt;
+  if (enemyShootTimer >= enemyShootInterval) {
+    enemyShootTimer = 0;
+    const alive = enemies.filter(e => e.alive);
+    if (alive.length > 0) {
+      const shooter = alive[Math.floor(Math.random() * alive.length)];
+      const angle = Math.atan2(player.y - shooter.y, player.x - shooter.x);
+      enemyBullets.push({
+        x: shooter.x,
+        y: shooter.y + shooter.h / 2,
+        vx: Math.cos(angle) * ENEMY_BULLET_SPEED,
+        vy: Math.sin(angle) * ENEMY_BULLET_SPEED,
+      });
+    }
+  }
+}
+
+function updateDiving(dt) {
+  diveTimer += dt;
+  if (diveTimer >= diveInterval) {
+    diveTimer = 0;
+    const candidates = enemies.filter(e => e.alive && !e.diving);
+    if (candidates.length > 0) {
+      const diver = candidates[Math.floor(Math.random() * candidates.length)];
+      diver.diving = true;
+      diver.divePhase = 0;
+      diver.diveStartX = diver.x;
+      diver.diveStartY = diver.y;
+      // Curve toward player then loop back
+      diver.diveTargetX = player.x;
+    }
+  }
+
+  enemies.forEach(e => {
+    if (!e.diving || !e.alive) return;
+    e.divePhase += dt * 1.5;
+    if (e.divePhase < 1) {
+      // Dive down toward player
+      e.y = e.diveStartY + (H + 40 - e.diveStartY) * e.divePhase;
+      e.x = e.diveStartX + (e.diveTargetX - e.diveStartX) * Math.sin(e.divePhase * Math.PI / 2);
+      // Shoot while diving
+      if (Math.random() < dt * 2) {
+        const angle = Math.atan2(player.y - e.y, player.x - e.x);
+        enemyBullets.push({
+          x: e.x, y: e.y + e.h / 2,
+          vx: Math.cos(angle) * ENEMY_BULLET_SPEED * 1.2,
+          vy: Math.sin(angle) * ENEMY_BULLET_SPEED * 1.2,
+        });
+      }
+    } else if (e.divePhase < 2) {
+      // Loop back to formation
+      const t = e.divePhase - 1;
+      e.y = (H + 40) + (e.baseY - (H + 40)) * t;
+      e.x = e.x + (e.baseX - e.x) * dt * 3;
+    } else {
+      e.diving = false;
+      e.x = e.baseX;
+      e.y = e.baseY;
+    }
+  });
+}
+
+function checkCollisions() {
+  // Player bullets vs enemies
+  playerBullets.forEach((b, bi) => {
+    enemies.forEach(e => {
+      if (!e.alive) return;
+      if (Math.abs(b.x - e.x) < e.w / 2 && Math.abs(b.y - e.y) < e.h / 2) {
+        e.alive = false;
+        playerBullets.splice(bi, 1);
+        score += ENEMY_TYPES[e.type].points;
+        spawnExplosion(e.x, e.y);
+        updateUI();
+      }
+    });
+  });
+
+  // Enemy bullets vs player
+  enemyBullets.forEach((b, bi) => {
+    if (Math.abs(b.x - player.x) < player.w / 2 && Math.abs(b.y - player.y) < player.h / 2) {
+      enemyBullets.splice(bi, 1);
+      playerHit();
+    }
+  });
+
+  // Diving enemies vs player
+  enemies.forEach(e => {
+    if (!e.alive || !e.diving) return;
+    if (Math.abs(e.x - player.x) < (e.w + player.w) / 2 && Math.abs(e.y - player.y) < (e.h + player.h) / 2) {
+      e.alive = false;
+      spawnExplosion(e.x, e.y);
+      playerHit();
+    }
+  });
+
+  // Enemies reaching bottom
+  enemies.forEach(e => {
+    if (e.alive && !e.diving && e.y > H - 60) {
+      playerHit();
+    }
+  });
+}
+
+function playerHit() {
+  lives--;
+  spawnExplosion(player.x, player.y);
+  updateUI();
+  if (lives <= 0) {
+    gameOver();
+  } else {
+    // Reset player position
+    player.x = W / 2;
+    enemyBullets = [];
+  }
+}
+
+function checkWaveComplete() {
+  if (enemies.every(e => !e.alive)) {
+    wave++;
+    enemySpeed += 5;
+    enemyMoveInterval = Math.max(0.2, enemyMoveInterval - 0.05);
+    enemyShootInterval = Math.max(0.4, enemyShootInterval - 0.08);
+    diveInterval = Math.max(1.0, diveInterval - 0.2);
+    startWaveTransition();
+  }
+}
+
+let waveTransition = false;
+let waveTransitionTimer = 0;
+
+function startWaveTransition() {
+  waveTransition = true;
+  waveTransitionTimer = 0;
+  document.getElementById('wave-text').textContent = `第 ${wave} 波`;
+  showOverlay('wave');
+  playerBullets = [];
+  enemyBullets = [];
+}
+
+function updateUI() {
+  document.getElementById('score').textContent = score;
+  document.getElementById('highscore').textContent = highScore;
+  document.getElementById('wave').textContent = wave;
+  // Lives display
+  const livesEl = document.getElementById('lives-display');
+  livesEl.innerHTML = '';
+  for (let i = 0; i < lives; i++) {
+    const div = document.createElement('div');
+    div.className = 'life-icon';
+    livesEl.appendChild(div);
+  }
+}
+
+function showOverlay(name) {
+  document.getElementById('start-overlay').classList.toggle('hidden', name !== 'start');
+  document.getElementById('pause-overlay').classList.toggle('hidden', name !== 'pause');
+  document.getElementById('gameover-overlay').classList.toggle('hidden', name !== 'gameover');
+  document.getElementById('wave-overlay').classList.toggle('hidden', name !== 'wave');
+}
+
+function togglePause() {
+  if (gameState === 'playing') {
+    gameState = 'paused';
+    cancelAnimationFrame(animFrame);
+    showOverlay('pause');
+  } else if (gameState === 'paused') {
+    gameState = 'playing';
+    showOverlay(null);
+    lastTime = performance.now();
+    animFrame = requestAnimationFrame(gameLoop);
+  }
+}
+
+function startGame() {
+  score = 0;
+  wave = 1;
+  lives = 3;
+  player.x = W / 2;
+  playerBullets = [];
+  enemyBullets = [];
+  explosions = [];
+  enemyDir = 1;
+  enemyMoveTimer = 0;
+  enemyMoveInterval = 0.6;
+  enemyShootTimer = 0;
+  enemyShootInterval = 1.2;
+  diveTimer = 0;
+  diveInterval = 3.0;
+  waveTransition = false;
+  createEnemies();
+  updateUI();
+  gameState = 'playing';
+  showOverlay(null);
+  lastTime = performance.now();
+  animFrame = requestAnimationFrame(gameLoop);
+}
+
+function gameOver() {
+  gameState = 'over';
+  cancelAnimationFrame(animFrame);
+  if (score > highScore) highScore = score;
+  document.getElementById('final-score').textContent = score;
+  document.getElementById('highscore').textContent = highScore;
+  showOverlay('gameover');
+}
+
+function gameLoop(time) {
+  if (gameState !== 'playing') return;
+  const dt = Math.min((time - lastTime) / 1000, 0.05);
+  lastTime = time;
+
+  // Wave transition
+  if (waveTransition) {
+    waveTransitionTimer += dt;
+    if (waveTransitionTimer >= 1.5) {
+      waveTransition = false;
+      showOverlay(null);
+      createEnemies();
+    }
+    // Still draw background
+    ctx.fillStyle = '#0a0a1a';
+    ctx.fillRect(0, 0, W, H);
+    drawStars(dt);
+    drawPlayer();
+    animFrame = requestAnimationFrame(gameLoop);
+    return;
+  }
+
+  // Update
+  updatePlayer(dt);
+  updateBullets(dt);
+  updateEnemyFormation(dt);
+  updateEnemyShooting(dt);
+  updateDiving(dt);
+  checkCollisions();
+  checkWaveComplete();
+
+  // Update explosions
+  explosions.forEach(ex => ex.timer += dt);
+  explosions = explosions.filter(ex => ex.timer < ex.duration);
+
+  // Draw
+  ctx.fillStyle = '#0a0a1a';
+  ctx.fillRect(0, 0, W, H);
+
+  drawStars(dt);
+
+  // Draw enemies
+  const timeNow = time / 1000;
+  enemies.forEach(e => { if (e.alive) drawEnemy(e, timeNow); });
+
+  // Draw bullets
+  playerBullets.forEach(b => drawBullet(b, '#53d8fb'));
+  enemyBullets.forEach(b => drawBullet(b, '#e94560'));
+
+  // Draw explosions
+  explosions.forEach(ex => drawExplosion(ex));
+
+  // Draw player
+  if (gameState === 'playing') drawPlayer();
+
+  animFrame = requestAnimationFrame(gameLoop);
+}
+
+// Buttons
+document.getElementById('start-btn').addEventListener('click', startGame);
+document.getElementById('restart-btn').addEventListener('click', startGame);
+
+// Initial
+showOverlay('start');
+ctx.fillStyle = '#0a0a1a';
+ctx.fillRect(0, 0, W, H);
+drawStars(0);
+updateUI();
+</script>
+</body>
+</html>

@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>頑皮鬼 Crush Roller</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a1a2e;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-family: 'Segoe UI', sans-serif;
+    color: #e0e0e0;
+    user-select: none;
+  }
+  .game-container {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+  }
+  .side-panel {
+    width: 170px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .panel-box {
+    background: #16213e;
+    border: 2px solid #0f3460;
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .panel-box h3 {
+    text-align: center;
+    margin-bottom: 8px;
+    color: #e94560;
+    font-size: 14px;
+    letter-spacing: 2px;
+  }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 14px;
+  }
+  .stat-value {
+    color: #53d8fb;
+    font-weight: bold;
+  }
+  .progress-bar {
+    width: 100%;
+    height: 16px;
+    background: #0a0a1a;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-top: 6px;
+    border: 1px solid #0f3460;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #00cc44, #00ff66);
+    border-radius: 8px;
+    transition: width 0.2s;
+  }
+  .lives-display {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 0;
+  }
+  canvas#game-canvas {
+    border: 3px solid #0f3460;
+    border-radius: 4px;
+    box-shadow: 0 0 30px rgba(233, 69, 96, 0.3);
+  }
+  .controls {
+    font-size: 12px;
+    line-height: 1.8;
+    color: #aaa;
+  }
+  .controls kbd {
+    background: #0f3460;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    color: #53d8fb;
+  }
+  .overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0,0,0,0.75);
+    border-radius: 4px;
+    gap: 12px;
+  }
+  .overlay.hidden { display: none; }
+  .overlay h2 { color: #e94560; font-size: 28px; }
+  .overlay p { color: #ccc; font-size: 14px; }
+  .board-wrapper { position: relative; }
+  .btn {
+    background: #e94560;
+    color: #fff;
+    border: none;
+    padding: 10px 28px;
+    font-size: 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    letter-spacing: 1px;
+  }
+  .btn:hover { background: #c73652; }
+  .legend-item {
+    display: flex; align-items: center; gap: 6px;
+    padding: 2px 0; font-size: 12px; color: #aaa;
+  }
+  .legend-color {
+    width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="game-container">
+  <div class="side-panel">
+    <div class="panel-box">
+      <h3>生命</h3>
+      <div class="lives-display" id="lives-display"></div>
+    </div>
+    <div class="panel-box">
+      <h3>分數</h3>
+      <div class="stat-row"><span>分數</span><span class="stat-value" id="score">0</span></div>
+      <div class="stat-row"><span>最高分</span><span class="stat-value" id="highscore">0</span></div>
+      <div class="stat-row"><span>關卡</span><span class="stat-value" id="level">1</span></div>
+    </div>
+    <div class="panel-box">
+      <h3>油漆進度</h3>
+      <div class="stat-row"><span>完成</span><span class="stat-value" id="percent">0%</span></div>
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+    </div>
+    <div class="panel-box controls">
+      <h3>操作</h3>
+      <kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd> 移動<br>
+      <kbd>P</kbd> 暫停
+    </div>
+    <div class="panel-box">
+      <h3>圖例</h3>
+      <div class="legend-item"><div class="legend-color" style="background:#b8b8e8;"></div> 未刷道路</div>
+      <div class="legend-item"><div class="legend-color" style="background:#00dd44;"></div> 已刷油漆</div>
+      <div class="legend-item"><div class="legend-color" style="background:#000060;"></div> 建築方塊</div>
+      <div class="legend-item"><div class="legend-color" style="background:#ff4444;"></div> 搗蛋鬼</div>
+      <div class="legend-item"><div class="legend-color" style="background:#ffaa00;"></div> 滾筒(可推)</div>
+    </div>
+    <div class="panel-box" style="text-align:center;">
+      <a href="index.html" style="color:#53d8fb; text-decoration:none; font-size:13px; letter-spacing:1px;">← 返回遊戲中心</a>
+    </div>
+  </div>
+
+  <div class="board-wrapper">
+    <canvas id="game-canvas"></canvas>
+    <div class="overlay" id="start-overlay">
+      <h2>頑皮鬼 CRUSH ROLLER</h2>
+      <p>刷完所有道路！推滾筒壓扁搗蛋鬼！</p>
+      <button class="btn" id="start-btn">開始遊戲</button>
+    </div>
+    <div class="overlay hidden" id="pause-overlay">
+      <h2>暫停中</h2>
+      <p>按 <kbd>P</kbd> 繼續</p>
+    </div>
+    <div class="overlay hidden" id="gameover-overlay">
+      <h2>遊戲結束</h2>
+      <p>最終分數: <span id="final-score">0</span></p>
+      <button class="btn" id="restart-btn">再玩一次</button>
+    </div>
+    <div class="overlay hidden" id="win-overlay">
+      <h2>過關！</h2>
+      <p>分數: <span id="win-score">0</span></p>
+      <button class="btn" id="next-btn">下一關</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// 1=wall/block, 2=road(paintable)
+// Large rectangular blocks with 1-tile-wide streets between them
+const MAP_TEMPLATE = [
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],
+  [2,1,1,1,2,1,1,1,1,1,2,1,1,1,1,1,2,1,1,1,2],
+  [2,1,1,1,2,1,1,1,1,1,2,1,1,1,1,1,2,1,1,1,2],
+  [2,1,1,1,2,1,1,1,1,1,2,1,1,1,1,1,2,1,1,1,2],
+  [2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],
+  [2,1,1,2,1,1,1,2,1,1,1,1,1,2,1,1,1,2,1,1,2],
+  [2,1,1,2,1,1,1,2,1,1,1,1,1,2,1,1,1,2,1,1,2],
+  [2,1,1,2,1,1,1,2,1,1,1,1,1,2,1,1,1,2,1,1,2],
+  [2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],
+  [2,1,1,1,1,2,1,1,2,1,2,1,2,1,1,2,1,1,1,1,2],
+  [2,1,1,1,1,2,1,1,2,1,2,1,2,1,1,2,1,1,1,1,2],
+  [2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],
+  [2,1,1,2,1,1,1,2,1,1,1,1,1,2,1,1,1,2,1,1,2],
+  [2,1,1,2,1,1,1,2,1,1,1,1,1,2,1,1,1,2,1,1,2],
+  [2,1,1,2,1,1,1,2,1,1,1,1,1,2,1,1,1,2,1,1,2],
+  [2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],
+  [2,1,1,1,2,1,1,1,1,1,2,1,1,1,1,1,2,1,1,1,2],
+  [2,1,1,1,2,1,1,1,1,1,2,1,1,1,1,1,2,1,1,1,2],
+  [2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],
+  [2,1,1,1,1,1,2,1,1,1,1,1,1,1,2,1,1,1,1,1,2],
+  [2,1,1,1,1,1,2,1,1,1,1,1,1,1,2,1,1,1,1,1,2],
+  [2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+];
+
+const COLS = MAP_TEMPLATE[0].length; // 21
+const ROWS = MAP_TEMPLATE.length;     // 24
+const TILE = 26;
+
+const canvas = document.getElementById('game-canvas');
+canvas.width = COLS * TILE;
+canvas.height = ROWS * TILE;
+const ctx = canvas.getContext('2d');
+
+// Colors matching the original Crush Roller
+const BG_COLOR   = '#000020';
+const BLOCK_COLOR = '#000060';
+const BLOCK_LIGHT = '#000080';
+const BLOCK_EDGE  = '#0000aa';
+const ROAD_COLOR  = '#b8b8e8'; // lavender unpainted
+const PAINT_COLOR = '#00dd44'; // bright green paint
+const PAINT_DARK  = '#00aa33';
+
+const DX = [1, 0, -1, 0]; // right, down, left, up
+const DY = [0, 1, 0, -1];
+
+let map, painted;
+let player, enemies, rollers;
+let score, lives, level, highScore = 0;
+let totalRoad, paintedCount;
+let gameState = 'idle';
+let animFrame, lastTime, accumulator;
+const STEP = 1000 / 60;
+let crushAnims = [];
+let tick = 0;
+
+const PLAYER_START = { x: 10, y: 22 };
+const ENEMY_STARTS = [
+  { x: 0, y: 1 },
+  { x: 20, y: 1 },
+];
+const ROLLER_POSITIONS = [
+  { x: 0, y: 5 },
+  { x: 20, y: 9 },
+  { x: 0, y: 16 },
+  { x: 20, y: 19 },
+];
+
+function cloneMap() { return MAP_TEMPLATE.map(r => [...r]); }
+
+function initLevel() {
+  map = cloneMap();
+  painted = Array.from({ length: ROWS }, () => new Array(COLS).fill(false));
+  totalRoad = 0;
+  paintedCount = 0;
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      if (map[r][c] === 2) totalRoad++;
+
+  player = {
+    x: PLAYER_START.x, y: PLAYER_START.y,
+    px: PLAYER_START.x, py: PLAYER_START.y, // pixel-level position
+    dir: -1, nextDir: -1,
+    speed: 0.07 + level * 0.003,
+    moving: false, frame: 0,
+  };
+  paintTile(player.x, player.y);
+
+  enemies = ENEMY_STARTS.map((pos, i) => ({
+    x: pos.x, y: pos.y,
+    px: pos.x, py: pos.y,
+    dir: i === 0 ? 0 : 2,
+    speed: 0.035 + level * 0.005,
+    color: i === 0 ? '#ff4444' : '#44aaff',
+    secondColor: i === 0 ? '#cc0000' : '#2288dd',
+    crushed: false,
+    respawnTimer: 0,
+    index: i,
+    moveAccum: 0,
+    frame: 0,
+  }));
+
+  rollers = ROLLER_POSITIONS.map(pos => ({
+    x: pos.x, y: pos.y,
+    px: pos.x, py: pos.y,
+    moving: false,
+    dir: -1,
+    active: true,
+  }));
+
+  crushAnims = [];
+  tick = 0;
+  updateLives();
+  updateStats();
+}
+
+function paintTile(tx, ty) {
+  if (tx >= 0 && tx < COLS && ty >= 0 && ty < ROWS && map[ty][tx] === 2 && !painted[ty][tx]) {
+    painted[ty][tx] = true;
+    paintedCount++;
+    score += 1;
+  }
+}
+
+function unpaintTile(tx, ty) {
+  if (tx >= 0 && tx < COLS && ty >= 0 && ty < ROWS && map[ty][tx] === 2 && painted[ty][tx]) {
+    painted[ty][tx] = false;
+    paintedCount--;
+  }
+}
+
+function isRoad(tx, ty) {
+  if (tx < 0 || tx >= COLS || ty < 0 || ty >= ROWS) return false;
+  return map[ty][tx] === 2;
+}
+
+function rollerAt(tx, ty) {
+  return rollers.find(r => r.active && !r.moving && Math.round(r.x) === tx && Math.round(r.y) === ty);
+}
+
+// --- UPDATE ---
+function updatePlayer() {
+  const p = player;
+  p.frame++;
+
+  // Snap to grid when close enough
+  const snappedX = Math.round(p.px);
+  const snappedY = Math.round(p.py);
+  const snapDist = 0.12;
+  const nearTile = Math.abs(p.px - snappedX) < snapDist && Math.abs(p.py - snappedY) < snapDist;
+
+  if (nearTile && p.nextDir >= 0) {
+    const ntx = snappedX + DX[p.nextDir];
+    const nty = snappedY + DY[p.nextDir];
+    if (isRoad(ntx, nty) && !rollerAt(ntx, nty)) {
+      p.dir = p.nextDir;
+      p.moving = true;
+      p.px = snappedX;
+      p.py = snappedY;
+    }
+  }
+
+  if (p.dir < 0 || !p.moving) return;
+
+  // Try to push roller
+  if (nearTile) {
+    const frontX = snappedX + DX[p.dir];
+    const frontY = snappedY + DY[p.dir];
+    const roller = rollerAt(frontX, frontY);
+    if (roller) {
+      // Check if roller can move in that direction
+      const behindX = frontX + DX[p.dir];
+      const behindY = frontY + DY[p.dir];
+      if (isRoad(behindX, behindY)) {
+        roller.moving = true;
+        roller.dir = p.dir;
+        score += 10;
+      }
+    }
+  }
+
+  const nx = p.px + DX[p.dir] * p.speed;
+  const ny = p.py + DY[p.dir] * p.speed;
+  const checkX = Math.round(nx + DX[p.dir] * 0.45);
+  const checkY = Math.round(ny + DY[p.dir] * 0.45);
+
+  if (isRoad(checkX, checkY) && !rollerAt(checkX, checkY)) {
+    p.px = nx;
+    p.py = ny;
+  } else {
+    p.px = Math.round(p.px);
+    p.py = Math.round(p.py);
+    p.moving = false;
+  }
+
+  p.x = Math.round(p.px);
+  p.y = Math.round(p.py);
+  paintTile(p.x, p.y);
+
+  // Check win
+  if (paintedCount >= totalRoad) {
+    gameState = 'win';
+    cancelAnimationFrame(animFrame);
+    score += 1000 * level;
+    document.getElementById('win-score').textContent = score;
+    showOverlay('win');
+  }
+}
+
+function updateEnemies() {
+  for (const e of enemies) {
+    if (e.crushed) {
+      e.respawnTimer--;
+      if (e.respawnTimer <= 0) {
+        e.crushed = false;
+        e.x = ENEMY_STARTS[e.index].x;
+        e.y = ENEMY_STARTS[e.index].y;
+        e.px = e.x; e.py = e.y;
+      }
+      continue;
+    }
+
+    e.frame++;
+    e.moveAccum += e.speed;
+    if (e.moveAccum < 1) continue;
+    e.moveAccum = 0;
+
+    const atTile = Math.abs(e.px - Math.round(e.px)) < 0.08 &&
+                   Math.abs(e.py - Math.round(e.py)) < 0.08;
+
+    if (atTile) {
+      e.px = Math.round(e.px);
+      e.py = Math.round(e.py);
+      e.x = e.px; e.y = e.py;
+
+      // Unpaint current tile
+      unpaintTile(e.x, e.y);
+
+      // Choose direction: prefer toward player
+      const options = [];
+      for (let d = 0; d < 4; d++) {
+        const ntx = e.x + DX[d];
+        const nty = e.y + DY[d];
+        if (isRoad(ntx, nty) && !rollerAt(ntx, nty)) options.push(d);
+      }
+
+      // Remove reverse unless it's the only option
+      const reverse = (e.dir + 2) % 4;
+      const nonReverse = options.filter(d => d !== reverse);
+      const choices = nonReverse.length > 0 ? nonReverse : options;
+
+      if (choices.length > 0) {
+        if (Math.random() < 0.55 + level * 0.04) {
+          // Chase player
+          let best = choices[0], bestDist = Infinity;
+          for (const d of choices) {
+            const dist = Math.abs(e.x + DX[d] - player.px) + Math.abs(e.y + DY[d] - player.py);
+            if (dist < bestDist) { bestDist = dist; best = d; }
+          }
+          e.dir = best;
+        } else {
+          e.dir = choices[Math.floor(Math.random() * choices.length)];
+        }
+      }
+    }
+
+    // Move
+    const nx = e.px + DX[e.dir];
+    const ny = e.py + DY[e.dir];
+    if (isRoad(Math.round(nx), Math.round(ny)) && !rollerAt(Math.round(nx), Math.round(ny))) {
+      e.px = nx; e.py = ny;
+      e.x = Math.round(e.px); e.y = Math.round(e.py);
+    } else {
+      e.px = Math.round(e.px); e.py = Math.round(e.py);
+      e.x = e.px; e.y = e.py;
+    }
+
+    // Unpaint where they walk
+    unpaintTile(Math.round(e.px), Math.round(e.py));
+
+    // Collision with player
+    if (Math.abs(e.px - player.px) < 0.6 && Math.abs(e.py - player.py) < 0.6) {
+      playerDie();
+      return;
+    }
+  }
+}
+
+function updateRollers() {
+  const rollerSpeed = 0.18;
+  for (const r of rollers) {
+    if (!r.active || !r.moving) continue;
+
+    r.px += DX[r.dir] * rollerSpeed;
+    r.py += DY[r.dir] * rollerSpeed;
+    r.x = Math.round(r.px);
+    r.y = Math.round(r.py);
+
+    // Paint as it rolls
+    paintTile(r.x, r.y);
+
+    // Crush enemies
+    for (const e of enemies) {
+      if (e.crushed) continue;
+      if (Math.abs(r.px - e.px) < 0.7 && Math.abs(r.py - e.py) < 0.7) {
+        e.crushed = true;
+        e.respawnTimer = Math.max(120, 300 - level * 20);
+        score += 500;
+        crushAnims.push({ x: e.px, y: e.py, timer: 50, text: '500' });
+      }
+    }
+
+    // Stop at wall
+    const frontX = Math.round(r.px + DX[r.dir] * 0.5);
+    const frontY = Math.round(r.py + DY[r.dir] * 0.5);
+    if (!isRoad(frontX, frontY)) {
+      r.px = Math.round(r.px);
+      r.py = Math.round(r.py);
+      r.moving = false;
+    }
+
+    if (paintedCount >= totalRoad) {
+      gameState = 'win';
+      cancelAnimationFrame(animFrame);
+      score += 1000 * level;
+      document.getElementById('win-score').textContent = score;
+      showOverlay('win');
+    }
+  }
+}
+
+function playerDie() {
+  lives--;
+  updateLives();
+  if (lives <= 0) {
+    gameState = 'over';
+    cancelAnimationFrame(animFrame);
+    if (score > highScore) highScore = score;
+    document.getElementById('highscore').textContent = highScore;
+    document.getElementById('final-score').textContent = score;
+    showOverlay('gameover');
+  } else {
+    resetPositions();
+  }
+}
+
+function resetPositions() {
+  player.px = PLAYER_START.x; player.py = PLAYER_START.y;
+  player.x = PLAYER_START.x; player.y = PLAYER_START.y;
+  player.dir = -1; player.nextDir = -1; player.moving = false;
+  enemies.forEach((e, i) => {
+    e.px = ENEMY_STARTS[i].x; e.py = ENEMY_STARTS[i].y;
+    e.x = ENEMY_STARTS[i].x; e.y = ENEMY_STARTS[i].y;
+    e.crushed = false; e.dir = i === 0 ? 0 : 2;
+  });
+  rollers.forEach((r, i) => {
+    r.px = ROLLER_POSITIONS[i].x; r.py = ROLLER_POSITIONS[i].y;
+    r.x = ROLLER_POSITIONS[i].x; r.y = ROLLER_POSITIONS[i].y;
+    r.moving = false; r.active = true;
+  });
+}
+
+function updateLives() {
+  const c = document.getElementById('lives-display');
+  c.innerHTML = '';
+  for (let i = 0; i < lives; i++) {
+    const el = document.createElement('canvas');
+    el.width = 24; el.height = 24;
+    const lx = el.getContext('2d');
+    // Mini paint roller icon
+    lx.fillStyle = '#00dd44';
+    lx.fillRect(4, 14, 16, 6);
+    lx.fillStyle = '#8B6914';
+    lx.fillRect(10, 4, 4, 12);
+    c.appendChild(el);
+  }
+}
+
+function updateStats() {
+  document.getElementById('score').textContent = score;
+  document.getElementById('level').textContent = level;
+  document.getElementById('highscore').textContent = highScore;
+  const pct = totalRoad > 0 ? Math.floor((paintedCount / totalRoad) * 100) : 0;
+  document.getElementById('percent').textContent = pct + '%';
+  document.getElementById('progress-fill').style.width = pct + '%';
+}
+
+// --- DRAW ---
+function draw() {
+  ctx.fillStyle = BG_COLOR;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const x = c * TILE;
+      const y = r * TILE;
+      if (map[r][c] === 1) {
+        drawBlock(x, y, c, r);
+      } else if (map[r][c] === 2) {
+        if (painted[r][c]) {
+          // Painted road - bright green
+          ctx.fillStyle = PAINT_COLOR;
+          ctx.fillRect(x, y, TILE, TILE);
+          // Subtle brush texture
+          ctx.fillStyle = PAINT_DARK;
+          ctx.globalAlpha = 0.25;
+          for (let s = 2; s < TILE; s += 5) {
+            ctx.fillRect(x, y + s, TILE, 1);
+          }
+          ctx.globalAlpha = 1;
+        } else {
+          // Unpainted road - lavender
+          ctx.fillStyle = ROAD_COLOR;
+          ctx.fillRect(x, y, TILE, TILE);
+          // Subtle grid
+          ctx.strokeStyle = 'rgba(0,0,0,0.06)';
+          ctx.strokeRect(x, y, TILE, TILE);
+        }
+      }
+    }
+  }
+
+  // Draw rollers
+  for (const r of rollers) {
+    if (!r.active) continue;
+    drawRoller(r);
+  }
+
+  // Draw enemies
+  for (const e of enemies) {
+    if (!e.crushed) drawEnemy(e);
+  }
+
+  // Draw player
+  drawPlayer();
+
+  // Crush animations
+  for (let i = crushAnims.length - 1; i >= 0; i--) {
+    const a = crushAnims[i];
+    a.timer--;
+    if (a.timer <= 0) { crushAnims.splice(i, 1); continue; }
+    ctx.fillStyle = '#ffff00';
+    ctx.font = 'bold 14px "Segoe UI"';
+    ctx.textAlign = 'center';
+    ctx.globalAlpha = a.timer / 50;
+    ctx.fillText(a.text, a.x * TILE + TILE / 2, a.y * TILE - (50 - a.timer) * 0.8);
+    ctx.globalAlpha = 1;
+  }
+
+  updateStats();
+}
+
+function drawBlock(x, y, c, r) {
+  // Dark navy block
+  ctx.fillStyle = BLOCK_COLOR;
+  ctx.fillRect(x, y, TILE, TILE);
+  // Inner lighter shade
+  ctx.fillStyle = BLOCK_LIGHT;
+  ctx.fillRect(x + 2, y + 2, TILE - 4, TILE - 4);
+  // Edge highlights where adjacent to road
+  ctx.strokeStyle = BLOCK_EDGE;
+  ctx.lineWidth = 1;
+  if (r > 0 && map[r-1][c] !== 1) { ctx.beginPath(); ctx.moveTo(x, y + 0.5); ctx.lineTo(x + TILE, y + 0.5); ctx.stroke(); }
+  if (r < ROWS-1 && map[r+1][c] !== 1) { ctx.beginPath(); ctx.moveTo(x, y + TILE - 0.5); ctx.lineTo(x + TILE, y + TILE - 0.5); ctx.stroke(); }
+  if (c > 0 && map[r][c-1] !== 1) { ctx.beginPath(); ctx.moveTo(x + 0.5, y); ctx.lineTo(x + 0.5, y + TILE); ctx.stroke(); }
+  if (c < COLS-1 && map[r][c+1] !== 1) { ctx.beginPath(); ctx.moveTo(x + TILE - 0.5, y); ctx.lineTo(x + TILE - 0.5, y + TILE); ctx.stroke(); }
+}
+
+function drawPlayer() {
+  const p = player;
+  const cx = p.px * TILE + TILE / 2;
+  const cy = p.py * TILE + TILE / 2;
+  const bob = Math.sin(p.frame * 0.2) * 1.5;
+
+  // Paint roller handle
+  ctx.fillStyle = '#8B6914';
+  ctx.fillRect(cx - 2, cy - 11 + bob, 4, 10);
+
+  // Paint roller body
+  ctx.fillStyle = PAINT_COLOR;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 3 + bob, 9, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#00aa33';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 3 + bob, 9, 6, 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Direction indicator (small arrow)
+  if (p.dir >= 0) {
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    const ax = cx + DX[p.dir] * 10;
+    const ay = cy + DY[p.dir] * 10 + bob;
+    ctx.arc(ax, ay, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Paint drip effect
+  ctx.fillStyle = PAINT_COLOR;
+  ctx.globalAlpha = 0.6;
+  ctx.beginPath();
+  ctx.arc(cx - 5, cy + 10 + bob, 2, 0, Math.PI * 2);
+  ctx.arc(cx + 4, cy + 9 + bob, 1.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
+function drawEnemy(e) {
+  const cx = e.px * TILE + TILE / 2;
+  const cy = e.py * TILE + TILE / 2;
+  const bob = Math.sin(e.frame * 0.12 + e.index * 3) * 2;
+  const legPhase = Math.sin(e.frame * 0.2 + e.index) * 3;
+
+  if (e.index === 0) {
+    // Enemy 1: Cat-like character (matching original screenshot)
+    // Body
+    ctx.fillStyle = e.color;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + bob, 8, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Ears
+    ctx.beginPath();
+    ctx.moveTo(cx - 7, cy - 6 + bob);
+    ctx.lineTo(cx - 4, cy - 13 + bob);
+    ctx.lineTo(cx - 1, cy - 6 + bob);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(cx + 1, cy - 6 + bob);
+    ctx.lineTo(cx + 4, cy - 13 + bob);
+    ctx.lineTo(cx + 7, cy - 6 + bob);
+    ctx.fill();
+    // Eyes
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(cx - 3, cy - 2 + bob, 2.5, 0, Math.PI * 2);
+    ctx.arc(cx + 3, cy - 2 + bob, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.arc(cx - 3 + DX[e.dir], cy - 2 + bob + DY[e.dir] * 0.5, 1.3, 0, Math.PI * 2);
+    ctx.arc(cx + 3 + DX[e.dir], cy - 2 + bob + DY[e.dir] * 0.5, 1.3, 0, Math.PI * 2);
+    ctx.fill();
+    // Mouth
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(cx, cy + 3 + bob, 3, 0, Math.PI);
+    ctx.stroke();
+    // Legs
+    ctx.fillStyle = e.secondColor;
+    ctx.fillRect(cx - 6, cy + 7 + bob + legPhase, 4, 4);
+    ctx.fillRect(cx + 2, cy + 7 + bob - legPhase, 4, 4);
+  } else {
+    // Enemy 2: Bird/fish-like character
+    ctx.fillStyle = e.color;
+    // Body
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + bob, 9, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Wings/fins
+    ctx.fillStyle = e.secondColor;
+    ctx.beginPath();
+    ctx.moveTo(cx - 9, cy + bob);
+    ctx.lineTo(cx - 14, cy - 5 + bob + legPhase);
+    ctx.lineTo(cx - 6, cy - 3 + bob);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(cx + 9, cy + bob);
+    ctx.lineTo(cx + 14, cy - 5 + bob - legPhase);
+    ctx.lineTo(cx + 6, cy - 3 + bob);
+    ctx.fill();
+    // Eyes
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(cx - 3, cy - 2 + bob, 3, 0, Math.PI * 2);
+    ctx.arc(cx + 3, cy - 2 + bob, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.arc(cx - 3 + DX[e.dir], cy - 2 + bob, 1.5, 0, Math.PI * 2);
+    ctx.arc(cx + 3 + DX[e.dir], cy - 2 + bob, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    // Beak
+    ctx.fillStyle = '#ffaa00';
+    ctx.beginPath();
+    ctx.moveTo(cx, cy + 2 + bob);
+    ctx.lineTo(cx - 3, cy + 6 + bob);
+    ctx.lineTo(cx + 3, cy + 6 + bob);
+    ctx.fill();
+  }
+}
+
+function drawRoller(roller) {
+  const cx = roller.px * TILE + TILE / 2;
+  const cy = roller.py * TILE + TILE / 2;
+
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(cx + 1, cy + 8, 8, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Handle
+  ctx.fillStyle = '#8B6914';
+  ctx.fillRect(cx - 2, cy - 10, 4, 8);
+
+  // Roller cylinder
+  ctx.fillStyle = '#ffaa00';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 2, 9, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#cc8800';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 2, 9, 6, 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Shine
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(cx - 3, cy, 3, 2, -0.3, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+// --- GAME LOOP ---
+function gameLoop(time) {
+  if (gameState !== 'playing') return;
+  const delta = time - lastTime;
+  lastTime = time;
+  accumulator += delta;
+  while (accumulator >= STEP) {
+    tick++;
+    updatePlayer();
+    if (gameState !== 'playing') return;
+    updateEnemies();
+    if (gameState !== 'playing') return;
+    updateRollers();
+    if (gameState !== 'playing') return;
+    accumulator -= STEP;
+  }
+  draw();
+  animFrame = requestAnimationFrame(gameLoop);
+}
+
+function startGame() {
+  level = 1; score = 0; lives = 3;
+  initLevel();
+  gameState = 'playing';
+  showOverlay(null);
+  lastTime = performance.now();
+  accumulator = 0;
+  draw();
+  animFrame = requestAnimationFrame(gameLoop);
+}
+
+function nextLevel() {
+  level++;
+  initLevel();
+  gameState = 'playing';
+  showOverlay(null);
+  lastTime = performance.now();
+  accumulator = 0;
+  draw();
+  animFrame = requestAnimationFrame(gameLoop);
+}
+
+function togglePause() {
+  if (gameState === 'playing') {
+    gameState = 'paused';
+    cancelAnimationFrame(animFrame);
+    showOverlay('pause');
+  } else if (gameState === 'paused') {
+    gameState = 'playing';
+    showOverlay(null);
+    lastTime = performance.now();
+    accumulator = 0;
+    animFrame = requestAnimationFrame(gameLoop);
+  }
+}
+
+function showOverlay(name) {
+  ['start','pause','gameover','win'].forEach(n =>
+    document.getElementById(n + '-overlay').classList.toggle('hidden', name !== n));
+}
+
+// --- INPUT ---
+document.addEventListener('keydown', e => {
+  if (gameState === 'playing') {
+    switch (e.key) {
+      case 'ArrowLeft':  player.nextDir = 2; break;
+      case 'ArrowRight': player.nextDir = 0; break;
+      case 'ArrowUp':    player.nextDir = 3; break;
+      case 'ArrowDown':  player.nextDir = 1; break;
+      case 'p': case 'P': togglePause(); break;
+      default: return;
+    }
+    e.preventDefault();
+  } else if (gameState === 'paused' && (e.key === 'p' || e.key === 'P')) {
+    togglePause();
+  }
+});
+
+document.getElementById('start-btn').addEventListener('click', startGame);
+document.getElementById('restart-btn').addEventListener('click', startGame);
+document.getElementById('next-btn').addEventListener('click', nextLevel);
+
+// Init
+showOverlay('start');
+map = cloneMap();
+painted = Array.from({ length: ROWS }, () => new Array(COLS).fill(false));
+totalRoad = 1; paintedCount = 0;
+draw();
+</script>
+</body>
+</html>
